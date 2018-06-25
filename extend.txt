@@ -1,0 +1,89 @@
+extend
+    在设计网页的时候常常遇到这种情况:一个元素使用的样式与另一个元素完全相同,但又添加了额外的样式.
+    通常会在HTML中给元素定义两个class,一个叫通用样式,一个特殊样式.
+    假设现在要设计一个普通错误样式与一个严重错误样式,一般会这样写:
+    <div class="error seriousError">
+        Oh no! You've been hacked!
+    </div>
+
+    样式如下
+    .error{
+        border:1px #f00;
+        background-color:#fdd;
+    }
+    .seriousError{
+        border-width:3px;
+    }
+    麻烦的是,这样做必须时刻记住使用,seriousError时需要考虑.error的样式,带来了很多不便
+    只能比如加重维护负担,导致bug,或者给HTML添加无语义的样式.
+    使用@extend可以避免上述情况,告诉Sass将一个选择器下的所有样式继承给另一个选择器
+    .error{
+        border:1px #f00;
+        background-color:#fdd;
+    }
+    .seriousError{
+        @extend .error;
+        border-width:3px;
+    }
+    上面代码的意思是将.error下的所有样式继承给.seriousError,border-width:3px;是单独给.seriousError设定特殊样式,这样,使用.seriousError的地方可以不再使用.error.
+    其他使用到.error的样式也会同样继承给.seriousError,例如,另一个样式 .error.instrusion使用了hacked.png做背景,<div class='seriousError instrusion'></div>也同样会使用hacked.png做背景
+    .error instrusion{
+        backg-image: url('/image/hacked.png');
+    }
+
+    1.How it works
+        @extend的作用是将重复使用的样式(.error)延伸(extend)给需要包含这个样式的特殊样式(.seriousError),刚刚的例子:
+        .error {
+            border: 1px #f00;
+            background-color: #fdd;
+        }
+        .error.intrusion {
+            background-image: url("/image/hacked.png");
+        }
+        .seriousError {
+            @extend .error;
+            border-width: 3px;
+        }
+
+        编译为
+        .error, .seriousError{
+            border: 1px #f00;
+            background-color: #fdd;
+        }
+        .error.intrusion, .seriousError.intrusion {
+            background-image: url("/image/hacked.png"); 
+        }
+        .seriousError {
+            border-width: 3px; 
+        
+        }
+        当合并选择器时,@extend会很聪明地避免无谓的重复,.seriousError.seriousError将编译为.seriousError,不能匹配任何元素的选择器(比如#main#footer)也会删除
+
+    2.延伸复杂的选择器(Extending Complex Selectors)
+        Class选择器并不是唯一可以被延伸(extend)的,Sass允许延伸任何定义给单个元素的选择器,比如.special.cool,a:hover或者a.user[href^='http://']等,例如
+        .hoverlink{
+            @extend a:hover;
+        }
+        同class元素一样,a:hover的样式将继承给.hoverlink
+        .hoverlink{
+            @extend a:hover;
+        }
+        a:hover{
+            text-decoration:underline;
+        }
+        编译为
+        a:hover,.hoverlink{
+            text-decoration:underline;
+        }
+        与上面.error.instrusion的例子一样,所有a:hover的样式将继承给.hoverlink,包括其他使用到a:hover的样式,例如:
+        .hoverlink{
+            @extend a:hover;
+        }
+        .comment a.user:hover{
+            font-weight:bold;
+        }
+
+        编译为
+        .comment a.user:hover, .comment .user.hoverlink{
+            font-weight:bold;
+        }
