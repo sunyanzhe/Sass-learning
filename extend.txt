@@ -87,3 +87,182 @@ extend
         .comment a.user:hover, .comment .user.hoverlink{
             font-weight:bold;
         }
+
+    3.多重延伸
+        同一个选择器可以延伸给多个选择器,它所包含的属性将继承给所有被延伸的选择器
+        .error{
+            border:1px #f00;
+            background-color:#fdd;
+        }
+        .attention{
+            font-size:3em;
+            background-color:#ff0;
+        }
+
+        编译为
+        .error, .seriousError{
+            border:1px #f00;
+            background-color:#fdd;
+        }
+        .attention, .seriousError{
+            font-size:3em;
+            background-colir:#ff0
+        }
+        .seriousError{
+            border-width:3px;
+        }
+        每个.seriousError将包含.error与.attention下的所有样式,这时,后定义的样式享有优先权:.seriousError的背景颜色时#ff0而不是#fdd,因为.attention在.error之后定义.
+        多重延伸可以使用逗号分割选择器名,比如@extend .error, .attention;与@extend .error;@extend attention有相同的效果.
+
+    4.继续延伸
+        当一个选择器延伸给第二个后,可以继续将第二个选择器延伸给第三个,例如
+        .error{
+            border:1px #f00;
+            background-color:#fdd;
+        }
+        .seriousError{
+            @extend .error;
+            border-width:3px;
+        }
+        .criticalError{
+            @extend .seriousError;
+            position:fixed;
+            top:10%;
+            bottom:10%;
+            left:10%;
+            right:10%
+        }
+        现在,每个.seriousError选择器将包含.error的样式,而.criticalError不仅包含.seriousError的样式也会同时包含.error的所有样式,上面的代码编译为
+        .error, .seriousError, .criticalError {
+            border: 1px #f00;
+            background-color: #fdd; 
+        }
+        .seriousError, .criticalError {
+            border-width: 3px; 
+        }
+        .criticalError {
+            position: fixed;
+            top: 10%;
+            bottom: 10%;
+            left: 10%;
+            right: 10%; 
+        }
+    5.选择器列
+        暂时不可以将选择器列,比如.foo .bar或.foo+.bar,延伸给其他元素,但是,却可以将其他元素延伸给选择器列
+        #fake-links .link{
+            @extend a;
+        }
+        a{
+            color:blue;
+            &:hover{
+                text-decoration:underline;
+            }
+        }
+        编译为
+        a, #fake-links .link{
+            color:blue;
+        }
+        a:hover,#fake-links .links:hover{
+            text-decoration:underline;
+        }
+
+        5.1合并选择器列
+            有时会遇到复杂的情况,比如选择器列中的某个元素需要延伸给另一个选择器列,这种情况下,两个选择器列要合并,比如
+            #admin .tabbar a{
+                font-weight:bold;
+            }
+            #demo .overview .fakelink{
+                @extend a;
+            }
+            
+            技术上讲能够生成所有匹配条件的结果,但是这样生成的样式表太复杂了,上面这个简单的例子就有10种可能结果.
+            所以,sass只会编译输出有用的选择器
+
+            当两个列合并时,如果没有包含相同的选择器,将生成两个新选择器:第一列出现在第二列之前,或者第二列出现在第一列之前
+            #admin .tabbar a{
+                font-weight:bold;   
+            }
+            #demo .overview .fakelink{
+                @extend a;
+            }
+
+            编译为
+            #admin .tabbar a,
+            #admin .tabbar #demo .overview .fakelink,
+            #demo .overview #admin .tabbar .fakelink{
+                font-weight:bold;
+            }
+
+            如果两个列包含仙童的选择器,相同不会将会合并在一起,其他部分交替输出.
+            在下面的例子中,两个列都包含#admin,输出结果中他们合并在了一起:
+            #admin .tabbar a{
+                font-weight:bold;
+            }
+            #admin .overview .fakelink{
+                @extend a;
+            }
+
+            编译为
+            #admin .tabbar a,
+            #admin .tabbar .overview .fakelink,
+            #admin .overview .tabbar .fakelink{
+                font-weight:bold;
+            }
+    
+    6.@extend-Only选择器(@extend-Only Selectors)
+        有时,需要定义一套样式并不是给某个元素用,而是只通过@extend指令使用,尤其是在直走Sass样式库的时候,希望Sass能够忽略用不到的样式
+        如果使用普通的Css规则,最后会编译出很多用不到的样式,也很容易与其他样式名冲突,所以,Sass引入"占位符选择器",看起来很像普通的id或class选择器,只是#或.被替换成了%.
+        可以像class或者id选择器那样使用,当它们单独使用时,不会被编译到CSS文件中.
+        //This ruleset won't be rendered on its own.
+        #context a%extreme{
+            color:blue;
+            font-weight:bold;
+            font-size:2em
+        }
+        
+        占位符选择器需要通过延伸指令使用,用法与class或者id选择器一样,被延伸后,占位符选择器本身不会被编译.
+        .notice{
+            @extend %extreme;
+        }
+
+        编译为
+
+        #context a.notice{
+            color:blue;
+            font-weight:bold;
+            font-size:2em;
+        }
+    
+    7.!optional声明(The !optional Flag)
+        如果@extend失败会收到错误提示,比如,这样写a.important{@extend .notice},当没有.notice选择器时,将会报错,只有h1.notice包含.notice时也会报错,因为h1与a冲突,会生成新的选择器
+        如果要求@extend不生成新选择器,可以通过!optional声明达到这个目的,例如:
+        a.important{
+            @extend .notice !optional;
+        }
+
+    8.在指令中延伸
+        在指令中使用@extend时(比如在@media中)有一些限制:Sass不可以将@media层外的CSS规则延伸给指令层内的CSS,这样会生成大量的无用代码.
+        也就是说,如果在@media(或者其他CSS指令)中使用@extend,必须延伸给相同指令层中的选择器
+        下面的例子是可行的
+        @media print {
+            .error{
+                border 1px #f00;
+                background-color:#fdd;
+            }
+            .seriousError{
+                @extedn .error;
+                border-width:3px;
+            }
+        }
+        但不可以这样:
+        .error{
+            border:1px #f00;
+            background-color:#fdd;
+        }
+        @media print{
+            .seriousError{
+                // INVALID EXTEND: .error is used outside of the "@media print" directive
+                @extend .error;
+                border-width: 3px;
+            }
+        }
